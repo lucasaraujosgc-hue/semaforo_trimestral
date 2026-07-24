@@ -65,8 +65,11 @@ const ai = new GoogleGenAI({
 
 app.post('/api/gemini/chat', async (req, res) => {
   try {
-    const { history, prompt, attachments } = req.body;
-    // attachments is an array of base64 objects: { mimeType, data }
+    const { history, prompt, message, attachments, files, systemContext } = req.body;
+    
+    // Suporte tanto ao formato anterior quanto ao novo
+    const userMessage = message || prompt;
+    const userFiles = files || attachments;
 
     const contents = [];
     
@@ -81,39 +84,51 @@ app.post('/api/gemini/chat', async (req, res) => {
     }
 
     const currentParts = [];
-    if (attachments && attachments.length > 0) {
-      for (const att of attachments) {
+    
+    // Inject context data invisibly
+    if (systemContext) {
+      currentParts.push({ text: "CONTEXTO DOS INDICADORES ATUAIS:\n" + JSON.stringify(systemContext) + "\n\n" });
+    }
+
+    if (userFiles && userFiles.length > 0) {
+      for (const f of userFiles) {
          currentParts.push({
             inlineData: {
-              mimeType: att.mimeType,
-              data: att.data
+              mimeType: f.mimeType,
+              data: f.data || f.base64
             }
          });
       }
     }
-    currentParts.push({ text: prompt });
+    
+    if (userMessage) currentParts.push({ text: userMessage });
 
     contents.push({ role: 'user', parts: currentParts });
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: contents,
-      config: {
-         systemInstruction: "Você é um Assistente de Inteligência Artificial para Gestão Municipal (Semaforo de Indicadores). Responda sempre em Markdown com formatação amigável."
-      }
-    });
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: contents,
+        config: {
+           systemInstruction: `Você é um assistente IA especializado em gestão pública municipal. Use os dados de contexto fornecidos na primeira mensagem para responder a qualquer dúvida do usuário sobre os dados dos indicadores, tendências ou metas. Responda em Markdown limpo e objetivo.`
+        }
+      });
 
-    res.json({ text: response.text });
+      res.json({ text: response.text });
+    } catch (error) {
+      console.error('Gemini error:', error);
+      
+      // Check for 429 quota error
+      if (error.status === 429 || (error.message && (error.message.includes('429') || error.message.toLowerCase().includes('quota')))) {
+         return res.status(429).json({ error: "Limite de uso gratuito atingido. Aguarde 1 a 2 minutos para tentar novamente." });
+      }
+      
+      res.status(500).json({ error: 'Falha na IA' });
+    }
 
   } catch (error) {
-    console.error('Gemini error:', error);
-    
-    // Check for 429 quota error
-    if (error.message && (error.message.includes('429') || error.message.includes('quota'))) {
-       return res.status(429).json({ error: "O limite de uso gratuito da Inteligência Artificial foi atingido. Por favor, aguarde cerca de 1 a 2 minutos para que a cota seja restabelecida e tente novamente." });
-    }
-    
-    res.status(500).json({ error: 'Erro ao gerar resposta com a Inteligência Artificial.' });
+    console.error('Internal server error:', error);
+    res.status(500).json({ error: 'Erro interno no servidor.' });
   }
 });
 
@@ -147,6 +162,19 @@ app.post('/api/posts/import', (req, res) => {
       const topicId = mapTopicToId(item.topicId || 'planejamento');
       
       const chartConfigObj = item.dadosGrafico || { type: 'bar', title: 'Importado', series: [] };
+      if (chartConfigObj.rows && !chartConfigObj.series) {
+         chartConfigObj.series = chartConfigObj.rows.map(r => ({ x: r.label, y: r.value }));
+         delete chartConfigObj.rows;
+      }
+      if (chartConfigObj.multiLineSeries && Array.isArray(chartConfigObj.multiLineSeries)) {
+         chartConfigObj.multiLineSeries = chartConfigObj.multiLineSeries.map(mls => {
+            if (mls.data && Array.isArray(mls.data)) {
+               // Support signal logic in multiLineSeries
+               return { ...mls, data: mls.data.map(d => ({ x: d.x || d.label, y: d.y || d.value, signal: d.status || d.signal })) };
+            }
+            return mls;
+         });
+      }
       const chartConfigStr = JSON.stringify(chartConfigObj);
       
       // Parse indicadores chave

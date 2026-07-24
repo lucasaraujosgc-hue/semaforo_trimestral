@@ -173,7 +173,7 @@ function App() {
             usingServer={usingServer}
           />
         )}
-        <AIAssistant />
+        <AIAssistant posts={posts} />
       </div>
     </Router>
   );

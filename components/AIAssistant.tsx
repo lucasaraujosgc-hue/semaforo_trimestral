@@ -9,7 +9,11 @@ interface ChatMessage {
   attachments?: { name: string; type: string }[];
 }
 
-export const AIAssistant: React.FC = () => {
+interface AIAssistantProps {
+  posts: any[];
+}
+
+export const AIAssistant: React.FC<AIAssistantProps> = ({ posts }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -82,6 +86,7 @@ export const AIAssistant: React.FC = () => {
           history: messages,
           prompt: userMessage.text,
           attachments: formattedAttachments,
+          systemContext: posts
         }),
       });
 
@@ -127,11 +132,11 @@ export const AIAssistant: React.FC = () => {
             drag
             dragHandle=".chat-header"
             dragMomentum={false}
-            initial={{ opacity: 0, y: 50, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 50, scale: 0.9 }}
-            className="fixed bottom-6 right-6 z-50 bg-slate-900 border border-slate-700 shadow-2xl rounded-2xl flex flex-col overflow-hidden"
-            style={{ width: '400px', height: '600px', resize: 'both', minWidth: '300px', minHeight: '400px', maxWidth: '100vw', maxHeight: '100vh', touchAction: 'none' }}
+            initial={{ opacity: 0, scale: 0.9, x: 0, y: 0 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="fixed z-50 bg-slate-900 border border-slate-700 shadow-2xl rounded-2xl flex flex-col overflow-hidden"
+            style={{ top: '10%', left: 'calc(100vw - 420px)', width: '400px', height: '600px', resize: 'both', minWidth: '300px', minHeight: '400px', maxWidth: '100vw', maxHeight: '100vh', touchAction: 'none' }}
           >
             <div className="chat-header bg-slate-950 p-4 border-b border-slate-800 flex justify-between items-center cursor-move select-none">
               <div className="flex items-center gap-2 text-emerald-400 font-bold">
