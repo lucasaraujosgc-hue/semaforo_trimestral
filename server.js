@@ -209,8 +209,8 @@ app.post('/api/posts/import', (req, res) => {
          fonteOficial: '-',
          recorrencia: item.identificacaoEstrategia?.periodo || '-',
          dataAtualizacao: Date.now(),
-         semaforoRules: { green: '', yellow: '', red: '' },
-         semaforoGeral: 'yellow',
+         semaforoRules: item.calibragemSemaforo?.regras || { green: '', yellow: '', red: '' },
+         semaforoGeral: item.calibragemSemaforo?.semaforoGeral || 'yellow',
          progress: 0,
          progressHistory: [],
          report: {
