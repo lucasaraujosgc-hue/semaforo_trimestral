@@ -10,7 +10,8 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Configuração do Banco de Dados SQLite
 const dataDir = path.join(__dirname, 'data');
@@ -165,6 +166,15 @@ app.post('/api/posts/import', (req, res) => {
       if (chartConfigObj.rows && !chartConfigObj.series) {
          chartConfigObj.series = chartConfigObj.rows.map(r => ({ x: r.label, y: r.value }));
          delete chartConfigObj.rows;
+      }
+      if (chartConfigObj.data && Array.isArray(chartConfigObj.data) && !chartConfigObj.series) {
+         chartConfigObj.series = chartConfigObj.data.map(d => ({ 
+             x: d.label || d.x, 
+             y: d.barValue !== undefined ? d.barValue : (d.value !== undefined ? d.value : d.y), 
+             color: d.color,
+             signal: d.status || d.signal 
+         }));
+         delete chartConfigObj.data;
       }
       if (chartConfigObj.multiLineSeries && Array.isArray(chartConfigObj.multiLineSeries)) {
          chartConfigObj.multiLineSeries = chartConfigObj.multiLineSeries.map(mls => {
