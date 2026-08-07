@@ -13,7 +13,9 @@ import {
   PieChart,
   Pie,
   Cell,
-  ComposedChart
+  ComposedChart,
+  ReferenceLine,
+  ReferenceArea
 } from 'recharts';
 import { ChartConfig, ExternalChartData } from '../types';
 
@@ -240,11 +242,48 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ config }) => {
     const commonMargin = { top: 20, right: 30, bottom: 20, left: 50 };
     const domainWithPadding: [number, any] = [0, (dataMax: number) => Math.ceil(dataMax * 1.05)];
 
+    let refNextLabel: string | undefined = undefined;
+    if (config.referenceLine && processedData.length > 0) {
+      const idx = processedData.findIndex((d: any) => d.label === config.referenceLine);
+      if (idx !== -1 && idx < processedData.length - 1) {
+         refNextLabel = processedData[idx + 1].label;
+      }
+    }
+
+    const renderCustomDivider = (props: any) => {
+      const { viewBox, stroke, strokeDasharray } = props;
+      if (!viewBox) return null;
+      const x = viewBox.x + (viewBox.width || 0) / 2;
+      return (
+        <g>
+          <line 
+            x1={x} y1={viewBox.y} 
+            x2={x} y2={viewBox.y + viewBox.height} 
+            stroke={stroke || "#f1f5f9"} 
+            strokeDasharray={strokeDasharray} 
+            strokeWidth={2}
+          />
+          <text x={x} y={viewBox.y} dy={-10} fill={stroke || "#f1f5f9"} fontSize={10} textAnchor="middle">
+            Divisor
+          </text>
+        </g>
+      );
+    };
+
+    const renderReferenceElement = () => {
+       if (!config.referenceLine) return null;
+       if (refNextLabel) {
+           return <ReferenceArea x1={config.referenceLine} x2={refNextLabel} stroke="#f1f5f9" strokeDasharray="3 3" shape={renderCustomDivider} />;
+       }
+       return <ReferenceLine x={config.referenceLine} stroke="#f1f5f9" strokeDasharray="3 3" strokeWidth={2} label={{ position: 'top', fill: '#f1f5f9', value: 'Divisor', fontSize: 10 }} />;
+    };
+
     // Renderização MultiLine
     if (isMultiLine && multiLineSeriesConfig) {
         return (
             <LineChart data={processedData} margin={commonMargin}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={true} />
+                {renderReferenceElement()}
                 <XAxis dataKey="label" stroke="#94a3b8" fontSize={12} tickLine={false} padding={{ left: 20, right: 20 }} />
                 <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} domain={domainWithPadding} tickFormatter={formatValue} />
                 <Tooltip content={<CustomTooltip />} />
@@ -291,6 +330,7 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ config }) => {
              return (
                 <ComposedChart data={processedData} margin={commonMargin}>
                   <CartesianGrid stroke="#334155" strokeDasharray="3 3" vertical={true} />
+                  {renderReferenceElement()}
                   <XAxis dataKey="label" scale="point" padding={{ left: 60, right: 60 }} stroke="#94a3b8" fontSize={11} tickLine={false} />
                   <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} domain={domainWithPadding} tickFormatter={formatValue} />
                   <Tooltip content={<CustomTooltip />} />
@@ -306,6 +346,7 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ config }) => {
         return (
             <ComposedChart data={processedData} margin={commonMargin} barCategoryGap="60%" barGap={0}>
               <CartesianGrid stroke="#334155" strokeDasharray="3 3" vertical={true} />
+              {renderReferenceElement()}
               <XAxis dataKey="label" scale="point" padding={{ left: 60, right: 60 }} stroke="#94a3b8" fontSize={11} tickLine={false} />
               <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} domain={domainWithPadding} tickFormatter={formatValue} />
               <Tooltip content={<CustomTooltip />} />
@@ -327,6 +368,7 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ config }) => {
       return (
         <ComposedChart data={processedData} margin={commonMargin} barCategoryGap="45%">
           <CartesianGrid stroke="#334155" strokeDasharray="3 3" vertical={true} />
+          {renderReferenceElement()}
           <XAxis dataKey="label" scale="point" padding={{ left: 10, right: 10 }} stroke="#94a3b8" fontSize={11} tickLine={false} />
           <YAxis yAxisId="left" stroke="#94a3b8" fontSize={11} tickLine={false} domain={domainWithPadding} />
           <YAxis yAxisId="right" orientation="right" stroke="#94a3b8" fontSize={11} hide={!complexConfig.yAxes?.right} />

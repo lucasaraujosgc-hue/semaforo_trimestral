@@ -147,6 +147,7 @@ export interface ChartConfig {
     color: string;
     data: Array<{ x: string; y: number; signal?: 'green' | 'yellow' | 'red' | 'none' }>;
   }>;
+  referenceLine?: string; // New field for reference line
   series?: any[];
   color?: string; // Cor padrão
   options?: any;

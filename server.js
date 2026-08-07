@@ -209,8 +209,8 @@ app.post('/api/posts/import', (req, res) => {
          fonteOficial: '-',
          recorrencia: item.identificacaoEstrategia?.periodo || '-',
          dataAtualizacao: Date.now(),
-         semaforoRules: item.calibragemSemaforo?.regras || { green: '', yellow: '', red: '' },
-         semaforoGeral: item.calibragemSemaforo?.semaforoGeral || 'yellow',
+         semaforoRules: { green: '', yellow: '', red: '' },
+         semaforoGeral: 'yellow',
          progress: 0,
          progressHistory: [],
          report: {
@@ -306,6 +306,18 @@ app.put('/api/posts/:id', (req, res) => {
       return;
     }
     res.json({ message: 'Post atualizado com sucesso', changes: this.changes });
+  });
+});
+
+// Deletar todos os posts
+app.delete('/api/posts', (req, res) => {
+  const sql = 'DELETE FROM posts';
+  db.run(sql, [], function(err) {
+    if (err) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
+    res.json({ message: 'Todos os posts deletados', changes: this.changes });
   });
 });
 

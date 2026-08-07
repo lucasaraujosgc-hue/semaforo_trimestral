@@ -135,9 +135,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   // Controle de exibição da coluna de Linha (BARRAS)
   const [showLineData, setShowLineData] = useState(false);
 
+  // Divisor vertical do gráfico
+  const [referenceLine, setReferenceLine] = useState('');
+
   // JSON Mode State (Passo 3)
   const [isJsonMode, setIsJsonMode] = useState(false);
   const [jsonInput, setJsonInput] = useState('');
+  
+  // Quick JSON Edit Modal
+  const [quickJsonModal, setQuickJsonModal] = useState<{ isOpen: boolean, postId: string, json: string }>({ isOpen: false, postId: '', json: '' });
 
   // File Upload Ref (Passo 5)
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -203,6 +209,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     // Carrega Labels customizados
     setBarLabel(post.chartConfig.barLabel || 'Realizado');
     setLineLabel(post.chartConfig.lineLabel || 'Meta');
+    setReferenceLine(post.chartConfig.referenceLine || '');
     
     // Lógica para determinar se a coluna extra deve ser mostrada em posts antigos
     const shouldShowExtra = post.report.showExtraColumn !== undefined 
@@ -281,6 +288,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                  type: 'line',
                  title: chartTitle,
                  multiLineSeries: cleanedSeries,
+                 referenceLine: referenceLine || undefined,
                  data: [] // Deixa vazio para não confundir o renderer legado
              };
         } else {
@@ -298,6 +306,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 title: chartTitle, 
                 barLabel,  
                 lineLabel: showLineData ? lineLabel : undefined, 
+                referenceLine: referenceLine || undefined,
                 data: cleanData 
             };
         }
@@ -337,6 +346,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       setBarLabel('Realizado');
       setLineLabel('Meta');
       setShowLineData(false);
+      setReferenceLine('');
       setIsJsonMode(false);
       setJsonInput('');
       setProgress(0); setProgressHistory([]);
@@ -789,7 +799,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                             barLabel: chartType === 'bar' ? barLabel : undefined,  
                                             lineLabel: chartType === 'bar' && showLineData ? lineLabel : undefined, 
                                             data: chartType === 'line' ? [] : cleanData, // Se for linha, usa multiLineSeries
-                                            multiLineSeries: chartType === 'line' ? lineSeries.map(s => ({ label: s.label, color: s.color, data: s.data })) : undefined
+                                            multiLineSeries: chartType === 'line' ? lineSeries.map(s => ({ label: s.label, color: s.color, data: s.data })) : undefined,
+                                            referenceLine: referenceLine || undefined
                                         };
                                         setJsonInput(JSON.stringify(currentConfig, null, 2));
                                     }
@@ -931,6 +942,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                             </div>
                                         ))}
                                     </div>
+                                    <div className="pt-4 mt-4 border-t border-slate-800">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase block mb-2">Divisor Vertical (Opcional - Rótulo do Eixo X)</label>
+                                        <input 
+                                            value={referenceLine} 
+                                            onChange={e => setReferenceLine(e.target.value)} 
+                                            className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white text-xs font-bold" 
+                                            placeholder="Ex: Março (Deixe vazio para não usar)"
+                                        />
+                                    </div>
                                 </div>
                             ) : (
                                 // --- BUILDER PADRÃO (BARRAS / PIZZA) ---
@@ -1011,6 +1031,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                             ))}
                                             <button onClick={() => setBuilderRows([...builderRows, {label: '', barValue: 0, lineValue: 0, color: '#10b981'}])} className="text-[10px] font-black text-emerald-400 mt-2 uppercase flex items-center gap-1"><Plus size={14}/> Adicionar Ponto</button>
                                         </div>
+                                    </div>
+                                    
+                                    <div className="pt-4 border-t border-slate-800">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase block mb-2">Divisor Vertical (Opcional - Rótulo do Eixo X)</label>
+                                        <input 
+                                            value={referenceLine} 
+                                            onChange={e => setReferenceLine(e.target.value)} 
+                                            className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white text-xs font-bold" 
+                                            placeholder="Ex: Março (Deixe vazio para não usar)"
+                                        />
                                     </div>
                                 </div>
                             )}
@@ -1353,6 +1383,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         >
                            Importar JSON
                         </button>
+                        <button 
+                           onClick={async () => {
+                               if(window.confirm('Tem certeza que deseja excluir TODOS os indicadores cadastrados? Isso apagará todas as importações.')) {
+                                   try {
+                                       const response = await fetch('/api/posts', { method: 'DELETE' });
+                                       if(response.ok) {
+                                           window.location.reload();
+                                       }
+                                   } catch(e) {
+                                       alert('Erro ao excluir tudo.');
+                                   }
+                               }
+                           }}
+                           className="bg-red-600/20 text-red-400 hover:bg-red-600 hover:text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase transition-all"
+                        >
+                           Excluir Tudo
+                        </button>
                         <div className="relative">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
                             <input 
@@ -1421,6 +1468,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         </div>
                       </div>
                       <div className="flex items-center gap-4">
+                        <button onClick={() => setQuickJsonModal({ isOpen: true, postId: post.id, json: JSON.stringify(post.chartConfig, null, 2) })} className="p-3 bg-purple-500/10 text-purple-400 hover:bg-purple-500 hover:text-white rounded-xl transition-all"><Code size={18}/></button>
                         <button onClick={() => handleEditClick(post)} className="p-3 bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white rounded-xl transition-all"><Pencil size={18}/></button>
                         <button onClick={() => onDeletePost(post.id)} className="p-3 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white rounded-xl transition-all"><Trash2 size={18}/></button>
                       </div>
@@ -1432,6 +1480,60 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
         </div>
       </div>
+      
+      {quickJsonModal.isOpen && (
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+            <div className="bg-slate-900 border border-slate-700 w-full max-w-2xl rounded-3xl overflow-hidden flex flex-col shadow-2xl">
+                <div className="p-6 border-b border-slate-800 flex items-center justify-between">
+                    <h3 className="font-black text-xl text-white flex items-center gap-2"><Code size={24} className="text-purple-400" /> Editor Avançado JSON</h3>
+                    <button onClick={() => setQuickJsonModal({ isOpen: false, postId: '', json: '' })} className="text-slate-400 hover:text-white"><X size={24} /></button>
+                </div>
+                <div className="p-6 bg-slate-950 flex-1">
+                    <textarea 
+                        value={quickJsonModal.json}
+                        onChange={e => setQuickJsonModal({ ...quickJsonModal, json: e.target.value })}
+                        className="w-full h-[400px] bg-slate-900 text-green-400 font-mono text-xs p-4 rounded-xl border border-slate-800 outline-none focus:border-purple-500"
+                    />
+                </div>
+                <div className="p-6 border-t border-slate-800 flex justify-end">
+                    <button 
+                        onClick={() => {
+                            try {
+                                const parsed = JSON.parse(quickJsonModal.json);
+                                const targetPost = posts.find(p => p.id === quickJsonModal.postId);
+                                if(targetPost) {
+                                    onEditPost(
+                                        targetPost.id, 
+                                        targetPost.topicId, 
+                                        targetPost.description, 
+                                        parsed, 
+                                        {
+                                            indicatorName: targetPost.indicatorName,
+                                            responsavel: targetPost.responsavel,
+                                            fonteOficial: targetPost.fonteOficial,
+                                            recorrencia: targetPost.recorrencia,
+                                            dataAtualizacao: targetPost.dataAtualizacao,
+                                            semaforoRules: targetPost.semaforoRules,
+                                            semaforoGeral: targetPost.semaforoGeral,
+                                            report: targetPost.report,
+                                            progress: targetPost.progress,
+                                            progressHistory: targetPost.progressHistory
+                                        }
+                                    );
+                                    setQuickJsonModal({ isOpen: false, postId: '', json: '' });
+                                }
+                            } catch(e) {
+                                alert('JSON Inválido! Verifique a sintaxe.');
+                            }
+                        }}
+                        className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-wider flex items-center gap-2"
+                    >
+                        Salvar JSON
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
     </div>
   );
 };
